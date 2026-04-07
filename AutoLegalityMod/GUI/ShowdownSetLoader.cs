@@ -249,6 +249,7 @@ public static class ShowdownSetLoader
             SetAlpha = settings.SetAlpha,
             TransferVersion = settings.TransferVersion,
         };
+        ModLogic.SmogonLivingDexFormats = [.. settings.SmogonLivingDexFormats];
 
         if (APILegality.UseCompetitiveMarkings)
             MarkingApplicator.MarkingMethod = APILegality.CompetitiveMarking;

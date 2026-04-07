@@ -27,6 +27,9 @@ public static class ModLogic
     public static bool SetAlpha { get; set; }
     public static GameVersion TransferVersion { get; set; }
 
+    // Smogon Living Dex settings
+    public static string[] SmogonLivingDexFormats { get; set; } = ["OU", "UU", "RU", "NU", "PU", "Ubers", "VGC", "BSS"];
+
     /// <summary>
     /// Exports the <see cref="SaveFile.CurrentBox"/> to <see cref="ShowdownSet"/> as a single string.
     /// </summary>
@@ -117,6 +120,99 @@ public static class ModLogic
         return pklist.OrderBy(z => z.Species);
     }
     public static int TrackingCount { get; set; }
+
+    /// <summary>
+    /// Gets a living dex (one per species) where each Pokémon uses its best matching Smogon set.
+    /// </summary>
+    /// <param name="sav">Save File to receive the generated <see cref="PKM"/>.</param>
+    /// <param name="personal">Personal table containing species and form data.</param>
+    /// <returns>Consumable list of newly generated <see cref="PKM"/> data.</returns>
+    public static IEnumerable<PKM> GenerateSmogonLivingDex(this ITrainerInfo sav, IPersonalTable personal)
+        => sav.GenerateSmogonLivingDex(personal, SmogonLivingDexFormats);
+
+    /// <summary>
+    /// Gets a living dex (one per species) where each Pokémon uses its best matching Smogon set.
+    /// </summary>
+    /// <param name="sav">Save File to receive the generated <see cref="PKM"/>.</param>
+    /// <param name="personal">Personal table containing species and form data.</param>
+    /// <param name="preferredFormats">Ordered list of format names to prefer (prefix match; e.g. "VGC" matches "VGC 2024").</param>
+    /// <returns>Consumable list of newly generated <see cref="PKM"/> data.</returns>
+    public static IEnumerable<PKM> GenerateSmogonLivingDex(this ITrainerInfo sav, IPersonalTable personal, string[] preferredFormats)
+    {
+        var pklist = new ConcurrentBag<PKM>();
+        var tr = APILegality.UseTrainerData ? TrainerSettings.GetSavedTrainerData(sav.Version) : sav;
+        var context = sav.Context;
+        var generation = sav.Generation;
+        TrackingCount = 0;
+        var opts = new ParallelOptions { MaxDegreeOfParallelism = 8 };
+        Parallel.For(1, personal.MaxSpeciesID + 1, opts, id =>
+        {
+            var s = (ushort)id;
+            if (!personal.IsSpeciesInGame(s))
+                return;
+
+            var form = GetBaseForm((Species)s, 0, sav);
+            if (!personal.IsPresentInGame(s, form) || FormInfo.IsLordForm(s, form, context) || FormInfo.IsBattleOnlyForm(s, form, generation) || FormInfo.IsFusedForm(s, form, generation))
+            {
+                TrackingCount++;
+                return;
+            }
+
+            var blank = EntityBlank.GetBlank(sav);
+            blank.Species = s;
+            blank.Form = form;
+            // Handle gender-based forms (Meowstic, Indeedee)
+            if (s is ((ushort)Meowstic) or ((ushort)Indeedee))
+                blank.Gender = blank.Form = 0; // male form
+            else
+                blank.Gender = blank.GetSaneGender();
+
+            PKM? pk = null;
+            try
+            {
+                var smogon = new SmogonSetGenerator(blank);
+                if (smogon.Valid && smogon.Sets.Count > 0)
+                {
+                    ShowdownSet? bestSet = null;
+                    // Try each preferred format in priority order (prefix match)
+                    foreach (var fmt in preferredFormats)
+                    {
+                        for (int i = 0; i < smogon.SetFormat.Count; i++)
+                        {
+                            var sf = smogon.SetFormat[i];
+                            if (sf.Equals(fmt, StringComparison.OrdinalIgnoreCase) ||
+                                sf.StartsWith(fmt + " ", StringComparison.OrdinalIgnoreCase))
+                            {
+                                bestSet = smogon.Sets[i];
+                                break;
+                            }
+                        }
+                        if (bestSet is not null)
+                            break;
+                    }
+                    // Fall back to first available set if no preferred format matched
+                    bestSet ??= smogon.Sets[0];
+
+                    var result = sav.GetLegalFromSet(bestSet);
+                    if (result.Status == LegalizationResult.Regenerated)
+                        pk = result.Created;
+                }
+            }
+            catch { /* Network/parse error – fall through to encounter fallback */ }
+
+            // Fall back to random legal encounter if Smogon failed or had no sets
+            pk ??= AddPKM(sav, tr, s, form, Config.SetShiny, Config.SetAlpha);
+
+            if (pk is { Species: not 0 })
+            {
+                pk.Heal();
+                pklist.Add(pk);
+            }
+            TrackingCount++;
+        });
+        return pklist.OrderBy(z => z.Species);
+    }
+
     /// <summary>
     /// Generates a living dex for transfer between games, considering both source and destination game restrictions.
     /// </summary>

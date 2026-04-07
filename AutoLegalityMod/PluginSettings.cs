@@ -17,6 +17,7 @@ public class PluginSettings
     private const string Legality = nameof(Legality);
     private const string LivingDex = nameof(LivingDex);
     private const string TransferDex = nameof(TransferDex);
+    private const string SmogonLivingDex = nameof(SmogonLivingDex);
     private const string Miscellaneous = nameof(Miscellaneous);
     private const string Development = nameof(Development);
 
@@ -133,6 +134,11 @@ public class PluginSettings
     [Category(TransferDex)]
     [Description("Generate Transfer Living Dex destination game")]
     public GameVersion TransferVersion { get; set; } = Latest.Version;
+
+    // Smogon Living Dex
+    [Category(SmogonLivingDex)]
+    [Description("Format priority list for Smogon Living Dex. One set per species is chosen by trying each format in order (prefix match: \"VGC\" matches \"VGC 2024\"). Falls back to any available Smogon set, then a random legal encounter. Common formats: OU, UU, RU, NU, PU, Ubers, VGC, BSS, LC, AG")]
+    public List<string> SmogonLivingDexFormats { get; set; } = ["OU", "UU", "RU", "NU", "PU", "Ubers", "VGC", "BSS"];
 
     // Miscellaneous
     [Category(Miscellaneous)]

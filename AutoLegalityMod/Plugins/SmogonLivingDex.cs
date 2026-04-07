@@ -1,56 +1,58 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using AutoModPlugins.GUI;
 using AutoModPlugins.Properties;
 using PKHeX.Core;
 using PKHeX.Core.AutoMod;
-using System.Collections.Generic;
-using Microsoft.VisualBasic.Devices;
-using System.Threading.Tasks;
-using AutoModPlugins.GUI;
 
 namespace AutoModPlugins;
 
-public class LivingDex : AutoModPlugin
+public class SmogonLivingDex : AutoModPlugin
 {
-    public override string Name => "Generate Living Dex";
+    public override string Name => "Generate Smogon Living Dex";
     public override int Priority => 1;
 
     protected override void AddPluginControl(ToolStripDropDownItem modmenu)
     {
         var ctrl = new ToolStripMenuItem(Name)
         {
-            Image = WinFormsUtil.GetIconForTheme(Resources.livingdex, Application.IsDarkModeEnabled),
-            ShortcutKeys = Keys.Alt | Keys.E,
+            Image = WinFormsUtil.GetIconForTheme(Resources.smogongenner, Application.IsDarkModeEnabled),
         };
-        ctrl.Click += GenLivingDex;
-        ctrl.Name = "Menu_LivingDex";
+        ctrl.Click += GenSmogonLivingDex;
+        ctrl.Name = "Menu_SmogonLivingDex";
         modmenu.DropDownItems.Add(ctrl);
     }
 
-    private async void GenLivingDex(object? sender, EventArgs e)
+    private async void GenSmogonLivingDex(object? sender, EventArgs e)
     {
-        var prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Generate a Living Dex?");
+        var formats = string.Join(", ", ModLogic.SmogonLivingDexFormats);
+        var prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo,
+            "Generate a Smogon Living Dex?",
+            $"One Pokémon per species will be generated using Smogon sets.\nFormat priority: {formats}\n\nNote: this requires an internet connection and may take several minutes.");
         if (prompt != DialogResult.Yes)
             return;
-        bool egg = new Keyboard().AltKeyDown;
+
         var sav = SaveFileEditor.SAV;
-        var t = new ALMStatusBar("Living Dex", sav.MaxSpeciesID)
+        var t = new ALMStatusBar("Smogon Living Dex", sav.MaxSpeciesID)
         {
             Count = ModLogic.TrackingCount
         };
         t.Show();
 
-        // After showing the form, start a polling loop
         _ = Task.Run(() => PollingLoop(t));
 
-        var dex = await Task.Run(() => egg ? sav.GenerateLivingEggDex(sav.Personal) : sav.GenerateLivingDex(sav.Personal));
+        var dex = await Task.Run(() => sav.GenerateSmogonLivingDex(sav.Personal));
         List<PKM> extra = [];
         t.Close();
+
         prompt = WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Overwrite any existing Pokémon in your boxes?");
         int generated = IngestToBoxes(sav, dex, extra, prompt == DialogResult.Yes);
-        System.Diagnostics.Debug.WriteLine($"Generated Living Dex with {generated} entries.");
+        System.Diagnostics.Debug.WriteLine($"Generated Smogon Living Dex with {generated} entries.");
         SaveFileEditor.ReloadSlots();
+
         if (extra.Count == 0)
             return;
 
@@ -61,6 +63,7 @@ public class LivingDex : AutoModPlugin
         using var ofd = new FolderBrowserDialog();
         if (ofd.ShowDialog() != DialogResult.OK)
             return;
+
         foreach (var f in extra)
         {
             File.WriteAllBytes($"{ofd.SelectedPath}/{f.FileName}", f.DecryptedPartyData);
@@ -79,6 +82,7 @@ public class LivingDex : AutoModPlugin
             }
         }
     }
+
     private static int IngestToBoxes(SaveFile sav, IEnumerable<PKM> list, IList<PKM> extra, bool overwrite, int slot = 0)
     {
         int generated = 0;
@@ -91,7 +95,7 @@ public class LivingDex : AutoModPlugin
             {
                 slot++;
             }
-            while (!TryAdd(sav, extra, pk,overwrite, ref slot));
+            while (!TryAdd(sav, extra, pk, overwrite, ref slot));
         }
         return generated;
     }

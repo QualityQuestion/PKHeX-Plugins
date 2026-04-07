@@ -49,7 +49,7 @@ public static class PKSMUtil
 
             var ofs = 16 + (ctr * pksmsize);
             WriteInt32LittleEndian(bank[ofs..], (int)GetPKSMFormat(pk));
-            pk.WriteDecryptedDataStored(decrypted);
+            pk.DecryptedBoxData.AsSpan().CopyTo(decrypted);
             decrypted.CopyTo(bank[(ofs + 4)..]);
 
             var repeat = pksmsize - decrypted.Length - 8;
@@ -97,7 +97,7 @@ public static class PKSMUtil
             var strings = GameInfo.Strings;
             previews.Add(new PKMPreview(pk, strings));
             var fileName = Path.Combine(dir, PathUtil.CleanFileName(pk.FileName));
-            pk.WriteDecryptedDataStored(decrypted);
+            pk.DecryptedBoxData.AsSpan().CopyTo(decrypted);
             File.WriteAllBytes(fileName, decrypted);
             ctr++;
         }
