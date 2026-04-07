@@ -1,3 +1,18 @@
+# This Fork
+All I did was add functionality to generate a living dex of entirely Smogon sets. This is not going to be kept up-to-date and will only be updated when I randomly need it again. Changes are below:
+
+  AutoLegalityMod/PluginSettings.cs — Added SmogonLivingDexFormats setting: a priority-ordered list of format names (default: OU, UU, RU, NU, PU, Ubers, VGC, BSS).
+
+  PKHeX.Core.AutoMod/Enhancements/ModLogic.cs — Added SmogonLivingDexFormats config + GenerateSmogonLivingDex() method:
+  - For each species, fetches the relevant Smogon page and tries formats in the set priority order
+  - "VGC" prefix matching
+  - Falls back to first available Smogon set if no preferred format matches
+  - Falls back to a random legal encounter if Smogon fails entirely
+
+  AutoLegalityMod/GUI/ShowdownSetLoader.cs — Used for new setting in SetAPILegalitySettings().
+
+  AutoLegalityMod/Plugins/SmogonLivingDex.cs (new) — Plugin class adding "Generate Smogon Living Dex" to the menu.
+
 # About  
 This project uses `PKHeX.Core` and PKHeX's `IPlugin` interface to add enhancements to the PKHeX program, namely **Auto**mated **Mod**ifications to simplify creation of legal Pokémon.
 This Fork is owned by [@santacrab2](https://github.com/santacrab2)
